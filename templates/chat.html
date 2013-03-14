@@ -8,9 +8,6 @@
   <body>
   <div id="body" data-room="{{ room }}">
       <div id="inbox">
-        {% for message in messages %}
-          {% include "message.html" %}
-        {% end %}
       </div>
       <div id="input">
         <form action="/a/message/new" method="post" id="messageform">

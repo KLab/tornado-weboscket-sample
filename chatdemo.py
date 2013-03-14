@@ -54,6 +54,8 @@ class ChatRoom(object):
         return room
 
     def join(self, handler):
+        for chat in self.cache:
+            handler.write_message(chat)
         self.waiters.add(handler)
 
     def leave(self, handler):
@@ -99,8 +101,7 @@ class MainHandler(tornado.web.RequestHandler):
 
 class ChatHandler(tornado.web.RequestHandler):
     def get(self, room):
-        cache = ChatRoom.get_room(room).cache
-        self.render("chat.html", messages=cache, room=room)
+        self.render("chat.html", room=room)
 
 class ChatSocketHandler(tornado.websocket.WebSocketHandler):
     def allow_draft76(self):
