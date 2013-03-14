@@ -26,17 +26,61 @@ import tornado.web
 import tornado.websocket
 import os.path
 import uuid
+from collections import deque
 
 from tornado.options import define, options
 
 define("port", default=8888, help="run on the given port", type=int)
 
 
+class ChatRoom(object):
+    rooms = {}
+    cache_size = 200
+
+    def __init__(self, name):
+        self.name = name
+        self.waiters = set()
+        self.rooms[name] = self
+        self.cache = deque(maxlen=self.cache_size)
+
+    def __repr__(self):
+        return "<ChatRoom name=%s>" % (self.name,)
+
+    @classmethod
+    def get_room(cls, name):
+        room = cls.rooms.get(name)
+        if room is None:
+            room = cls.rooms[name] = cls(name)
+        return room
+
+    def join(self, handler):
+        self.waiters.add(handler)
+
+    def leave(self, handler):
+        self.waiters.remove(handler)
+
+    def talk(self, chat):
+        self._update_cache(chat)
+        self._send_updates(chat)
+
+    def _update_cache(self, chat):
+        self.cache.append(chat)
+
+    def _send_updates(self, chat):
+        logging.info("(%s) Sending message to %d waiters",
+                     self.name, len(self.waiters))
+        for h in self.waiters:
+            try:
+                h.write_message(chat)
+            except:
+                logging.error("Error sending message", exc_info=True)
+
+
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
             (r"/", MainHandler),
-            (r"/chatsocket", ChatSocketHandler),
+            (r"/chat/(.*)", ChatSocketHandler),
         ]
         settings = dict(
             cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
@@ -61,26 +105,13 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         # for iOS 5.0 Safari
         return True
 
-    def open(self):
-        ChatSocketHandler.waiters.add(self)
+    def open(self, name):
+        self.room = ChatRoom.get_room(name)
+        self.room.join(self)
 
     def on_close(self):
-        ChatSocketHandler.waiters.remove(self)
-
-    @classmethod
-    def update_cache(cls, chat):
-        cls.cache.append(chat)
-        if len(cls.cache) > cls.cache_size:
-            cls.cache = cls.cache[-cls.cache_size:]
-
-    @classmethod
-    def send_updates(cls, chat):
-        logging.info("sending message to %d waiters", len(cls.waiters))
-        for waiter in cls.waiters:
-            try:
-                waiter.write_message(chat)
-            except:
-                logging.error("Error sending message", exc_info=True)
+        self.room.leave(self)
+        self.room = None
 
     def on_message(self, message):
         logging.info("got message %r", message)
@@ -90,17 +121,13 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
             "body": parsed["body"],
             }
         chat["html"] = self.render_string("message.html", message=chat)
-
-        ChatSocketHandler.update_cache(chat)
-        ChatSocketHandler.send_updates(chat)
-
+        self.room.talk(chat)
 
 def main():
     tornado.options.parse_command_line()
     app = Application()
     app.listen(options.port)
     tornado.ioloop.IOLoop.instance().start()
-
 
 if __name__ == "__main__":
     main()
