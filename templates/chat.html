@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="{{ static_url("chat.css") }}" type="text/css"/>
   </head>
   <body>
-    <div id="body">
+  <div id="body" data-room="{{ room }}">
       <div id="inbox">
         {% for message in messages %}
           {% include "message.html" %}

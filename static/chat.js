@@ -50,7 +50,8 @@ var updater = {
     socket: null,
 
     start: function() {
-        var url = "ws://" + location.host + "/chatsocket";
+        var room = document.getElementById("body").getAttribute("data-room");
+        var url = "ws://" + location.host + "/chatsocket/" + room;
         if ("WebSocket" in window) {
 	    updater.socket = new WebSocket(url);
         } else {

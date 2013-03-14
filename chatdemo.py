@@ -79,8 +79,9 @@ class ChatRoom(object):
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
-            (r"/", MainHandler),
-            (r"/chat/(.*)", ChatSocketHandler),
+                #(r"/", MainHandler),
+            (r"/chat/(.*)", ChatHandler),
+            (r"/chatsocket/(.*)", ChatSocketHandler),
         ]
         settings = dict(
             cookie_secret="__TODO:_GENERATE_YOUR_OWN_RANDOM_VALUE_HERE__",
@@ -92,9 +93,10 @@ class Application(tornado.web.Application):
         tornado.web.Application.__init__(self, handlers, **settings)
 
 
-class MainHandler(tornado.web.RequestHandler):
-    def get(self):
-        self.render("index.html", messages=ChatSocketHandler.cache)
+class ChatHandler(tornado.web.RequestHandler):
+    def get(self, room):
+        self.render("chat.html",
+                    messages=ChatSocketHandler.cache, room=room)
 
 class ChatSocketHandler(tornado.websocket.WebSocketHandler):
     waiters = set()
