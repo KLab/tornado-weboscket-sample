@@ -79,7 +79,7 @@ class ChatRoom(object):
 class Application(tornado.web.Application):
     def __init__(self):
         handlers = [
-                #(r"/", MainHandler),
+            (r"/", MainHandler),
             (r"/chat/(.*)", ChatHandler),
             (r"/chatsocket/(.*)", ChatSocketHandler),
         ]
@@ -93,16 +93,16 @@ class Application(tornado.web.Application):
         tornado.web.Application.__init__(self, handlers, **settings)
 
 
+class MainHandler(tornado.web.RequestHandler):
+    def get(self):
+        self.render("index.html", rooms=ChatRoom.rooms)
+
 class ChatHandler(tornado.web.RequestHandler):
     def get(self, room):
-        self.render("chat.html",
-                    messages=ChatSocketHandler.cache, room=room)
+        cache = ChatRoom.get_room(room).cache
+        self.render("chat.html", messages=cache, room=room)
 
 class ChatSocketHandler(tornado.websocket.WebSocketHandler):
-    waiters = set()
-    cache = []
-    cache_size = 200
-
     def allow_draft76(self):
         # for iOS 5.0 Safari
         return True
@@ -126,6 +126,8 @@ class ChatSocketHandler(tornado.websocket.WebSocketHandler):
         self.room.talk(chat)
 
 def main():
+    for i in range(1, 11):
+        ChatRoom.get_room("room" + str(i))
     tornado.options.parse_command_line()
     app = Application()
     app.listen(options.port)
